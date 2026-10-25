@@ -1,0 +1,173 @@
+.practice {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas:
+    'cube'
+    'scramble'
+    'solution';
+}
+
+@media (min-width: 1024px) {
+  .practice {
+    grid-template-columns: 280px minmax(0, 1fr) 360px;
+    grid-template-areas: 'scramble cube solution';
+    align-items: start;
+  }
+}
+
+.scramble-panel {
+  grid-area: scramble;
+}
+
+.solution-panel {
+  grid-area: solution;
+}
+
+@media (min-width: 1024px) {
+  .solution-panel {
+    max-height: calc(100svh - 120px);
+    overflow-y: auto;
+  }
+}
+
+.cube-stage {
+  grid-area: cube;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.practice-cube {
+  width: 100%;
+  height: min(60svh, 520px);
+  min-height: 280px;
+}
+
+.paste {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.paste textarea {
+  resize: vertical;
+  font-family: var(--mono);
+}
+
+.player-controls {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
+}
+
+.player-controls button {
+  min-width: 44px;
+}
+
+.solving {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.solving p,
+.solution-summary {
+  margin: 0;
+}
+
+.timeline {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.timeline-step {
+  --stage: var(--text-muted);
+  border-left: 4px solid var(--stage);
+  padding: 6px 0 6px 10px;
+  border-radius: 4px;
+}
+
+.timeline-step[data-active] {
+  background: var(--surface);
+}
+
+.stage-cross {
+  --stage: #2f7de1;
+}
+
+.stage-f2l {
+  --stage: #16a34a;
+}
+
+.stage-oll {
+  --stage: #c79a00;
+}
+
+.stage-pll {
+  --stage: #c2410c;
+}
+
+.timeline-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.timeline-label {
+  padding: 0;
+  border: none;
+  background: none;
+  text-align: left;
+  font-weight: 600;
+  color: var(--text-h);
+}
+
+.timeline-count {
+  flex: none;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.timeline-moves {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.move-token {
+  padding: 2px 7px;
+  font-family: var(--mono);
+  font-size: 0.9rem;
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text-muted);
+}
+
+.move-token[data-done] {
+  color: var(--text-h);
+}
+
+.move-token[aria-current='step'] {
+  background: var(--stage);
+  border-color: var(--stage);
+  color: #fff;
+}
+
+.timeline-case {
+  display: inline-block;
+  margin-top: 4px;
+  font-size: 0.85rem;
+  color: var(--accent);
+}
