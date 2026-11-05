@@ -13,10 +13,12 @@ interface SolveListProps {
   solves: readonly Solve[]
   onPenalty: (id: string, penalty: Penalty) => void
   onRemove: (id: string) => void
+  /** Opens the solve's scramble on the 3D review cube. */
+  onReview: (id: string) => void
 }
 
 /** Newest first; a row opens to show its scramble and edit the penalty. */
-export function SolveList({ solves, onPenalty, onRemove }: SolveListProps) {
+export function SolveList({ solves, onPenalty, onRemove, onReview }: SolveListProps) {
   const [openId, setOpenId] = useState<string | null>(null)
   const ao5 = useMemo(() => averageSeries(solves, 5), [solves])
 
@@ -46,6 +48,9 @@ export function SolveList({ solves, onPenalty, onRemove }: SolveListProps) {
                   {solve.caseId && <p className="muted">Ca: {solve.caseId}</p>}
                   <p className="alg-text">{solve.scramble || '(không có scramble)'}</p>
                   <p className="muted">{DATE_FORMAT.format(solve.at)}</p>
+                  <button type="button" className="primary" onClick={() => onReview(solve.id)}>
+                    Xem lời giải trên khối 3D
+                  </button>
                   <div className="button-row">
                     {PENALTY_OPTIONS.map(([penalty, label]) => (
                       <button

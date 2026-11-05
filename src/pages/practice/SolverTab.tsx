@@ -1,17 +1,10 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { CubeViewer, type CubeController, type Stickering } from '../../components/CubeViewer'
+import { useCallback, useState } from 'react'
+import { CubeViewer } from '../../components/CubeViewer'
+import { PlayerControls } from '../../components/PlayerControls'
 import { StepTimeline } from '../../components/StepTimeline'
+import { useSolutionPlayback } from '../../hooks/useSolutionPlayback'
 import { useSolver } from '../../hooks/useSolver'
 import { generateScramble, parseScramble } from '../../lib/scramble'
-import { stepStarts, timelineMoves } from '../../lib/timeline'
-import type { SolveStep } from '../../solver/types'
-
-const STAGE_STICKERING: Record<Exclude<SolveStep['stage'], 'Xoay'>, Stickering> = {
-  Cross: 'Cross',
-  F2L: 'F2L',
-  OLL: 'OLL',
-  PLL: 'PLL',
-}
 
 /** A new scramble plays from solved at this speed, faster than a solution. */
 const SCRAMBLE_TEMPO = 2.5
@@ -22,17 +15,11 @@ export function SolverTab() {
   const [scrambleError, setScrambleError] = useState<string | null>(null)
   const [pasted, setPasted] = useState('')
   const [copied, setCopied] = useState(false)
-  // Moves applied, tagged with the solution they belong to so a new solution starts at 0.
-  const [position, setPosition] = useState<{ of: unknown; index: number }>({ of: null, index: 0 })
-  const [playing, setPlaying] = useState(false)
-  const controller = useRef<CubeController>(null)
   const { state: solver, solve, cancel } = useSolver()
 
   const result = solver.status === 'done' ? solver.result : null
-  const moves = useMemo(() => (result ? timelineMoves(result.steps) : []), [result])
-  const starts = useMemo(() => (result ? [...new Set(stepStarts(result.steps))] : []), [result])
-  const solutionAlg = useMemo(() => moves.map((m) => m.token).join(' '), [moves])
-  const current = result && position.of === result ? Math.min(position.index, moves.length) : 0
+  const playback = useSolutionPlayback(result?.steps ?? null, { spaceToPlay: true })
+  const { controller, current, playing, seek } = playback
 
   const applyScramble = useCallback(
     (next: string) => {
@@ -74,53 +61,6 @@ export function SolverTab() {
     } catch {
       setCopied(false)
     }
-  }
-
-  const seek = useCallback(
-    (index: number) => {
-      void controller.current?.goToMove(Math.max(0, Math.min(index, moves.length)))
-    },
-    [moves.length],
-  )
-
-  const togglePlay = useCallback(() => {
-    if (!result) return
-    if (playing) {
-      controller.current?.pause()
-    } else {
-      if (current >= moves.length) controller.current?.jumpToStart()
-      controller.current?.play()
-    }
-  }, [result, playing, current, moves.length])
-
-  useEffect(() => {
-    if (!result) return
-    const onKey = (event: KeyboardEvent) => {
-      const target = event.target as HTMLElement
-      if (event.altKey || event.ctrlKey || event.metaKey || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName)) return
-      // A focused button already handles Space itself.
-      if (event.key === ' ' && target.tagName === 'BUTTON') return
-      const actions: Record<string, () => void> = {
-        ArrowLeft: () => seek(current - 1),
-        ArrowRight: () => seek(current + 1),
-        ArrowUp: () => seek([...starts].reverse().find((s) => s < current) ?? 0),
-        ArrowDown: () => seek(starts.find((s) => s > current) ?? moves.length),
-        ' ': togglePlay,
-      }
-      const action = actions[event.key]
-      if (!action) return
-      event.preventDefault()
-      action()
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [result, current, starts, moves.length, seek, togglePlay])
-
-  // Highlight the stage of the next move (rotations take the stage that follows).
-  let stickering: Stickering = 'full'
-  if (result && current > 0 && current < moves.length) {
-    const next = result.steps.slice(moves[current].step).find((s) => s.stage !== 'Xoay')
-    if (next && next.stage !== 'Xoay') stickering = STAGE_STICKERING[next.stage]
   }
 
   return (
@@ -171,36 +111,15 @@ export function SolverTab() {
         <CubeViewer
           className="practice-cube"
           setupAlg={result && scramble ? scramble : ''}
-          alg={result ? solutionAlg : (scramble ?? '')}
+          alg={result ? playback.solutionAlg : (scramble ?? '')}
           autoPlay={!result && scramble !== null}
           tempoScale={result ? 1 : SCRAMBLE_TEMPO}
-          stickering={stickering}
+          stickering={playback.stickering}
           controllerRef={controller}
-          onMoveIndexChange={result ? (index) => setPosition({ of: result, index }) : undefined}
-          onPlayingChange={setPlaying}
+          onMoveIndexChange={result ? playback.onMoveIndexChange : undefined}
+          onPlayingChange={playback.setPlaying}
         />
-        {result && (
-          <div className="player-controls" role="group" aria-label="Điều khiển lời giải">
-            <button type="button" onClick={() => seek(0)} aria-label="Về đầu" title="Về đầu">
-              ⏮
-            </button>
-            <button type="button" onClick={() => seek(current - 1)} aria-label="Lui 1 nước" title="Lui 1 nước (←)">
-              ◀
-            </button>
-            <button type="button" className="primary" onClick={togglePlay} aria-label={playing ? 'Dừng' : 'Phát'} title="Phát/dừng (Space)">
-              {playing ? '⏸' : '▶'}
-            </button>
-            <button type="button" onClick={() => seek(current + 1)} aria-label="Tới 1 nước" title="Tới 1 nước (→)">
-              ▶❘
-            </button>
-            <button type="button" onClick={() => seek(moves.length)} aria-label="Đến cuối" title="Đến cuối">
-              ⏭
-            </button>
-            <span className="move-counter">
-              {current}/{moves.length}
-            </span>
-          </div>
-        )}
+        {result && <PlayerControls {...playback} />}
       </section>
 
       <section className="panel solution-panel" aria-label="Lời giải CFOP" data-scroll-container>

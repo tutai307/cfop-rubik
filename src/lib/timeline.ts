@@ -1,4 +1,5 @@
 import type { SolveStep } from '../solver/types'
+import type { TimerSession } from '../timer/useSolves'
 
 export interface TimelineMove {
   token: string
@@ -38,4 +39,26 @@ export function appliedMoves(indexer: MoveIndexer, timestamp: number, atEnd: boo
   let index = Math.max(0, indexer.timestampToIndex(timestamp as never))
   while (index + 1 <= count - 1 && indexer.indexToMoveStartTimestamp((index + 1) as never) <= timestamp) index++
   return index
+}
+
+const SESSION_STAGES: Record<TimerSession, readonly SolveStep['stage'][]> = {
+  '333': ['Cross', 'F2L', 'OLL', 'PLL'],
+  cross: ['Cross'],
+  f2l: ['F2L'],
+  oll: ['OLL'],
+  pll: ['PLL'],
+}
+
+/**
+ * Splits a CFOP solution into the moves that reach the trained stage (applied as setup,
+ * so the cube starts there) and the stage's own steps with the rotations between them.
+ */
+export function stagePlan(steps: readonly SolveStep[], session: TimerSession): { setup: string; steps: SolveStep[] } {
+  const wanted = SESSION_STAGES[session]
+  const first = steps.findIndex((s) => wanted.includes(s.stage))
+  const last = steps.findLastIndex((s) => wanted.includes(s.stage))
+  return {
+    setup: steps.slice(0, first).map((s) => s.moves).filter(Boolean).join(' '),
+    steps: steps.slice(first, last + 1).filter((s) => s.stage === 'Xoay' || (wanted.includes(s.stage) && s.moves)),
+  }
 }

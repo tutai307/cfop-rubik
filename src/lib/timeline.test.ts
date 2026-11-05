@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import type { SolveStep } from '../solver/types'
-import { appliedMoves, stepStarts, timelineMoves, type MoveIndexer } from './timeline'
+import { applyAlg, isCrossSolved, isF2LSolved, isSolved, isTopOriented, stateOf, type Facelets } from '../cube'
+import scrambles from '../solver/fixtures/scrambles-100.json'
+import { solve } from '../solver/solve'
+import type { TimerSession } from '../timer/useSolves'
+import { appliedMoves, stagePlan, stepStarts, timelineMoves, type MoveIndexer } from './timeline'
 
 /** Mimics cubing's SimultaneousMoveIndexer: moves of 100 ms back to back. */
 function fakeIndexer(count: number): MoveIndexer {
@@ -38,5 +42,35 @@ describe('timeline steps', () => {
   it('flattens moves and finds step starts', () => {
     expect(timelineMoves(steps).map((m) => `${m.token}@${m.step}`)).toEqual(['z2@0', 'R@2', 'U@2', "R'@2", 'U2@3'])
     expect(stepStarts(steps)).toEqual([0, 1, 1, 4])
+  })
+})
+
+describe('stagePlan', () => {
+  // Setup plus the stage's own moves must finish exactly that stage, in the solving orientation.
+  const finished: Record<Exclude<TimerSession, '333'>, (state: Facelets) => boolean> = {
+    cross: isCrossSolved,
+    f2l: isF2LSolved,
+    oll: isTopOriented,
+    pll: isSolved,
+  }
+
+  it('starts each stage where the earlier stages end and finishes it', () => {
+    for (const scramble of scrambles.slice(0, 20)) {
+      const { steps } = solve(scramble)
+      for (const [session, done] of Object.entries(finished) as [Exclude<TimerSession, '333'>, (s: Facelets) => boolean][]) {
+        const plan = stagePlan(steps, session)
+        const start = applyAlg(stateOf(scramble), plan.setup)
+        const end = applyAlg(start, plan.steps.map((s) => s.moves).join(' '))
+        expect(done(end), `${session}: ${scramble}`).toBe(true)
+        expect(plan.steps.every((s) => s.stage === 'Xoay' || s.moves !== ''), session).toBe(true)
+      }
+    }
+  })
+
+  it('covers the whole solution after the initial rotation for full solves', () => {
+    const { steps } = solve(scrambles[0])
+    const plan = stagePlan(steps, '333')
+    expect(plan.setup).toBe('z2')
+    expect(isSolved(applyAlg(stateOf(scrambles[0]), [plan.setup, ...plan.steps.map((s) => s.moves)].join(' ')))).toBe(true)
   })
 })

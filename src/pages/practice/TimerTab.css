@@ -28,13 +28,17 @@
   grid-template-areas:
     'scramble'
     'timer'
+    'review'
     'stats';
 }
 
 @media (min-width: 1024px) {
   .trainer {
     grid-template-columns: 320px minmax(0, 1fr) 360px;
-    grid-template-areas: 'scramble timer stats';
+    grid-template-rows: auto 1fr;
+    grid-template-areas:
+      'scramble timer stats'
+      'scramble review stats';
     align-items: start;
   }
 
@@ -139,26 +143,51 @@
   max-width: 560px;
 }
 
-.last-solve details {
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.last-solve summary,
 .case-selector summary {
   cursor: pointer;
   color: var(--text-h);
 }
 
-.stage-reference ol {
-  list-style: none;
-  margin: 8px 0 0;
-  padding: 0;
+/* 3D review */
+
+.trainer-review {
+  grid-area: review;
+  scroll-margin-top: 16px;
+}
+
+.trainer-review .trainer-head {
+  flex-wrap: wrap;
+}
+
+.alg-inline {
+  font-family: var(--mono);
+  overflow-wrap: anywhere;
+}
+
+.stage-review {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.review-cube {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.review-viewer {
+  width: 100%;
+  height: 300px;
+}
+
+.review-steps {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  max-height: 420px;
+  overflow-y: auto;
 }
 
 /* Case selection */

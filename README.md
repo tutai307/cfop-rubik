@@ -66,8 +66,11 @@ vào đây trước khi làm.
    - Timer kiểu cstimer: giữ Space/chạm giữ 0,3 giây đến khi xanh, thả để bắt đầu, phím
      bất kỳ/chạm để dừng. Quan sát 15 giây WCA bật/tắt được (quá 15 giây +2, quá 17 giây DNF).
    - Mỗi lần giải sửa được +2/DNF/xoá; thống kê single, ao5, ao12, ao100 (hiện tại và tốt
-     nhất, bỏ 5% nhanh nhất/chậm nhất như WCA), mean; biểu đồ tiến bộ single + ao5 + ao12;
-     sau mỗi lần giải xem lời giải tham khảo của chặng đó từ solver CFOP.
+     nhất, bỏ 5% nhanh nhất/chậm nhất như WCA), mean; biểu đồ tiến bộ single + ao5 + ao12.
+   - Xem lại trên khối 3D: khối bắt đầu đúng ở đầu chặng đang luyện (trắng dưới), phát
+     lời giải của solver CFOP cho chặng đó, tới/lui từng nước như tab Giải theo CFOP.
+     Tự mở lần vừa giải; mở được mọi lần trong danh sách, hoặc scramble hiện tại (lời
+     giải ẩn đến khi bấm "Hiện lời giải").
    - Mỗi phiên (cả khối, Cross, F2L, OLL, PLL) lưu riêng trong `localStorage` của trình
      duyệt: không đồng bộ giữa các máy, không có xuất/nhập.
 

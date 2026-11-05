@@ -1,10 +1,10 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { CASES_BY_SET } from '../../algorithms'
 import { CaseSelector } from '../../components/CaseSelector'
 import { CubeNet } from '../../components/CubeNet'
 import { SolveList } from '../../components/SolveList'
 import { SolveStats } from '../../components/SolveStats'
-import { StageReference } from '../../components/StageReference'
+import { StageReview } from '../../components/StageReview'
 import { TimeChart } from '../../components/TimeChart'
 import { stateOf } from '../../cube'
 import { useStoredState } from '../../lib/storage'
@@ -64,14 +64,24 @@ export function TimerTab({ session }: TimerTabProps) {
     }
   }, [session, cases, token])
 
+  // What the 3D review shows: a solve by id, the scramble not solved yet, or (null) the latest solve.
+  const [reviewTarget, setReviewTarget] = useState<string | null>(null)
+  const reviewRef = useRef<HTMLElement>(null)
+
   const onFinish = useCallback(
     ({ time, penalty }: Finished) => {
       if (!current) return
       add({ time, penalty, scramble: current.scramble, ...(current.caseId ? { caseId: current.caseId } : {}) })
+      setReviewTarget(null)
       nextScramble()
     },
     [add, current, nextScramble],
   )
+
+  const reviewSolve = (id: string) => {
+    setReviewTarget(id)
+    requestAnimationFrame(() => reviewRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
+  }
 
   const { phase, elapsed, inspected, areaRef } = useTimer({ inspection, enabled: current !== null, onFinish })
   const running = phase === 'running'
@@ -85,6 +95,14 @@ export function TimerTab({ session }: TimerTabProps) {
   } else display = phase === 'idle' && last ? formatSolve(last) : formatTime(0)
 
   const preview = useMemo(() => (current ? stateOf(current.scramble) : null), [current])
+
+  const reviewIndex = reviewTarget === 'current' ? -1 : reviewTarget ? solves.findIndex((s) => s.id === reviewTarget) : solves.length - 1
+  const reviewed = reviewIndex >= 0 ? solves[reviewIndex] : undefined
+  const review = reviewed
+    ? { key: reviewed.id, scramble: reviewed.scramble, title: `Lần ${reviewIndex + 1} · ${formatSolve(reviewed)}`, hide: false }
+    : current
+      ? { key: `current-${current.scramble}`, scramble: current.scramble, title: 'Scramble hiện tại', hide: true }
+      : null
 
   return (
     <div className="trainer" data-running={running || undefined}>
@@ -149,12 +167,42 @@ export function TimerTab({ session }: TimerTabProps) {
                 Xoá
               </button>
             </div>
-            <details>
-              <summary>Lời giải tham khảo cho lần vừa rồi{last.caseId ? ` (${last.caseId})` : ''}</summary>
-              <p className="alg-text">{last.scramble}</p>
-              <StageReference scramble={last.scramble} session={session} />
-            </details>
           </div>
+        )}
+      </section>
+
+      <section ref={reviewRef} className="panel trainer-review hide-while-running" aria-label="Xem lại trên khối 3D">
+        <div className="trainer-head">
+          <h3>Xem lại trên khối 3D</h3>
+          <div className="button-row" role="group" aria-label="Chọn scramble để xem">
+            <button
+              type="button"
+              aria-pressed={reviewTarget === null && reviewed !== undefined}
+              disabled={solves.length === 0}
+              onClick={() => setReviewTarget(null)}
+            >
+              Lần vừa giải
+            </button>
+            <button
+              type="button"
+              aria-pressed={reviewTarget === 'current' || (!reviewed && current !== null)}
+              disabled={!current}
+              onClick={() => setReviewTarget('current')}
+            >
+              Scramble hiện tại
+            </button>
+          </div>
+        </div>
+        {review ? (
+          <>
+            <p className="muted">
+              <strong>{review.title}</strong>
+              {reviewed?.caseId ? ` · ${reviewed.caseId}` : ''} · <span className="alg-inline">{review.scramble}</span>
+            </p>
+            <StageReview key={review.key} scramble={review.scramble} session={session} hideSolution={review.hide} />
+          </>
+        ) : (
+          <p className="muted">Đang tạo scramble…</p>
         )}
       </section>
 
@@ -175,7 +223,7 @@ export function TimerTab({ session }: TimerTabProps) {
         <SolveStats solves={solves} />
         <TimeChart solves={solves} />
         <h4>Các lần giải</h4>
-        <SolveList solves={solves} onPenalty={setPenalty} onRemove={remove} />
+        <SolveList solves={solves} onPenalty={setPenalty} onRemove={remove} onReview={reviewSolve} />
       </section>
     </div>
   )
