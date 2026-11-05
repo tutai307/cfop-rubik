@@ -29,7 +29,7 @@ function App() {
       </header>
       <main className="app-main">
         {page.id === LIBRARY_PAGE && <LibraryPage path={rest} />}
-        {page.id === 'luyen-tap' && <PracticePage />}
+        {page.id === 'luyen-tap' && <PracticePage path={rest} />}
         {page.id === 'bld' && <BldPage path={rest} />}
       </main>
     </div>

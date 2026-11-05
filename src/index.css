@@ -10,6 +10,10 @@
   --accent-bg: rgba(124, 47, 208, 0.1);
   --accent-border: rgba(124, 47, 208, 0.5);
   --danger: #c0262d;
+  --ready: #15803d;
+  /* Chart series: validated categorical slots 1-2 */
+  --series-1: #2a78d6;
+  --series-2: #eb6834;
   --shadow:
     rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.05) 0 4px 6px -2px;
 
@@ -39,6 +43,9 @@
     --accent-bg: rgba(192, 132, 252, 0.15);
     --accent-border: rgba(192, 132, 252, 0.5);
     --danger: #f87171;
+    --ready: #4ade80;
+    --series-1: #3987e5;
+    --series-2: #d95926;
     --shadow:
       rgba(0, 0, 0, 0.4) 0 10px 15px -3px, rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
   }
@@ -97,6 +104,15 @@ button:hover:not(:disabled) {
 button:disabled {
   cursor: not-allowed;
   opacity: 0.5;
+}
+
+button.danger {
+  color: var(--danger);
+}
+
+button[aria-pressed='true'] {
+  border-color: var(--accent);
+  background: var(--accent-bg);
 }
 
 button.primary {

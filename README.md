@@ -55,11 +55,26 @@ vào đây trước khi làm.
    - Tạo scramble chọn được có/không parity (vẫn random-state: sinh lại đến khi khớp).
    - Thực hành bịt mắt: che khối 3D, đi qua từng lượt đổi chỗ, cuối cùng mở mắt kiểm tra.
    - Lời giải OP và bảng setup do app tính, được test đưa 100 scramble về solved.
+6. **Bấm giờ và luyện từng phần** (chốt 2026-11-05): trang Luyện tập chia 3 tab
+   *Giải theo CFOP* / *Bấm giờ* (cả khối) / *Luyện từng phần* (Cross, F2L, OLL, PLL).
+   - Scramble từng phần vẫn random-state: app sinh trạng thái ngẫu nhiên mà các chặng
+     trước đã xong (F2L: cross xong; OLL: F2L xong; PLL: mặt vàng xong), giải bằng
+     `experimentalSolve3x3x3IgnoringCenters` của `cubing.js` rồi đảo ngược, nên scramble
+     ngắn và không lộ công thức. Cross dùng scramble WCA thường. Bỏ qua ca "skip".
+   - OLL/PLL chọn được một số ca (theo nhóm hoặc từng ca); không chọn thì ngẫu nhiên tự nhiên.
+     F2L luyện cả 4 cặp, không có chế độ từng ca.
+   - Timer kiểu cstimer: giữ Space/chạm giữ 0,3 giây đến khi xanh, thả để bắt đầu, phím
+     bất kỳ/chạm để dừng. Quan sát 15 giây WCA bật/tắt được (quá 15 giây +2, quá 17 giây DNF).
+   - Mỗi lần giải sửa được +2/DNF/xoá; thống kê single, ao5, ao12, ao100 (hiện tại và tốt
+     nhất, bỏ 5% nhanh nhất/chậm nhất như WCA), mean; biểu đồ tiến bộ single + ao5 + ao12;
+     sau mỗi lần giải xem lời giải tham khảo của chặng đó từ solver CFOP.
+   - Mỗi phiên (cả khối, Cross, F2L, OLL, PLL) lưu riêng trong `localStorage` của trình
+     duyệt: không đồng bộ giữa các máy, không có xuất/nhập.
 
 Model khối dạng facelet tự viết dùng cho solver, test và hình minh hoạ; test
 bằng Vitest.
 
-**Ngoài phạm vi**: timer/thống kê, tài khoản, puzzle khác 3x3, Roux/ZZ, BLD M2/R2
+**Ngoài phạm vi**: đồng bộ/xuất nhập lịch sử giải, tài khoản, puzzle khác 3x3, Roux/ZZ, BLD M2/R2
 hoặc 3-style, chọn
 màu cross (color neutral), nhập khối bằng camera hoặc tô màu tay, backend.
 
@@ -86,6 +101,8 @@ npm test
 - Solver CFOP chạy trong Web Worker: [src/solver/](src/solver/); fixture 100 scramble WCA ở
   [src/solver/fixtures/](src/solver/fixtures/)
 - BLD Old Pochmann (bảng Speffz, setup, memo, lời giải): [src/bld/](src/bld/)
+- Scramble luyện từng chặng: [src/trainer/](src/trainer/); timer (máy trạng thái, thống kê,
+  lưu lịch sử): [src/timer/](src/timer/), lưu trữ `localStorage`: [src/lib/storage.ts](src/lib/storage.ts)
 - Giao diện: [src/pages/](src/pages/), [src/components/](src/components/) (`CubeViewer` bọc
   `TwistyPlayer`), [src/hooks/](src/hooks/)
 
