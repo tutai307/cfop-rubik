@@ -1,4 +1,5 @@
-import { applyAlg, applyMove, isSlotSolved, type Facelets } from '../cube'
+import { AUF, findCase, recognizeF2L } from '../algorithms'
+import { applyAlg, applyMove, isCrossSolved, isSlotSolved, parseAlg, simplify, type Facelets, type Move } from '../cube'
 import {
   CROSS_HOMES,
   F2L_MOVES,
@@ -104,7 +105,16 @@ function searchPair(state: Facelets, solved: readonly SlotName[], maxDepth: numb
   return null
 }
 
-// --- Pair order -------------------------------------------------------------------
+// --- Pair choice ------------------------------------------------------------------
+
+export interface PairOption {
+  slot: SlotName
+  /** Quarter `y` turns needed to bring the slot to FR. */
+  rotation: number
+  moves: number
+  /** Library case when the pair sits in a standard position, else `null`. */
+  caseId: string | null
+}
 
 export interface PairSolution {
   /** Slot as seen in the orientation right after the cross (green in front). */
@@ -114,115 +124,187 @@ export interface PairSolution {
   /** State with the pair rotated to FR, before `moves`. */
   before: Facelets
   moves: SearchMove[]
-  /** Every pair still open at this point with the moves it would take next, the chosen one included. */
-  options: { slot: SlotName; moves: number }[]
+  /** Library case used, `null` for a free pair or one solved by search. */
+  caseId: string | null
+  /** Every pair still open at this point, the chosen one included. */
+  options: PairOption[]
 }
 
 export interface F2LSolution {
   pairs: PairSolution[]
-  approximate: boolean
-  /** Total of always taking the cheapest next pair, to compare with the chosen order. */
-  greedyMoves: number
 }
 
-const length = (pairs: readonly PairSolution[]) => pairs.reduce((sum, p) => sum + p.moves.length, 0)
-
-function rotate(state: Facelets, turns: number): Facelets {
-  return turns === 0 ? state : applyMove(state, 'y', turns)
+/** A slot emptied of a stuck piece before the pair it frees. */
+export interface Extraction {
+  /** Slot as seen in the orientation right after the cross. */
+  slot: SlotName
+  /** Quarter `y` turns bringing that slot to FR. */
+  rotation: number
+  moves: SearchMove[]
 }
+
+export interface PairSolution {
+  /** Slot as seen in the orientation right after the cross (green in front). */
+  slot: SlotName
+  /** Taken first when no pair was in a standard position. */
+  extraction?: Extraction
+  /** Quarter `y` turns applied before solving the pair (after the extraction, if any). */
+  rotation: number
+  /** State with the pair rotated to FR, before `moves`. */
+  before: Facelets
+  moves: SearchMove[]
+  /** Library case used, `null` for a free pair or one solved by search. */
+  caseId: string | null
+  /** Every pair still open at this point, the chosen one included. */
+  options: PairOption[]
+}
+
+export interface F2LSolution {
+  pairs: PairSolution[]
+}
+
+/** Extra moves a rotation is worth: the pair nearest the front wins a near tie, and `y2` costs most. */
+export const ROTATION_COST = [0, 2, 3, 2]
+const FACE_LETTERS = 'URFDLB'
+/** Basic inserts that lift whatever sits in the FR slot to the U layer. */
+const EXTRACTIONS = ["R U R'", "R U' R'", "R U2 R'", "F' U' F", "F' U F", "F' U2 F"]
+
+const toSearchMoves = (moves: readonly Move[]): SearchMove[] =>
+  moves.map(({ family, amount }) => ({ family, amount, face: FACE_LETTERS.indexOf(family) }))
 
 const applySearchMoves = (state: Facelets, moves: readonly SearchMove[]) =>
   applyAlg(state, moves.map(({ family, amount }) => ({ family, amount })))
 
+const keeps = (state: Facelets, solved: readonly SlotName[]) =>
+  isCrossSolved(state) && solved.every((slot) => isSlotSolved(state, slot))
+
+/** The library alg (with the AUF it needs) for the FR pair, if it keeps the cross and `solved` slots. */
+function libraryPair(before: Facelets, solved: readonly SlotName[]): { caseId: string; moves: SearchMove[] } | null {
+  const caseId = recognizeF2L(before)
+  const algCase = caseId ? findCase(caseId) : undefined
+  if (!caseId || !algCase) return null
+  for (const auf of AUF) {
+    const moves = simplify(`${auf} ${algCase.alg}`)
+    const after = applyAlg(before, moves)
+    if (isSlotSolved(after, 'FR') && keeps(after, solved)) return { caseId, moves: toSearchMoves(moves) }
+  }
+  return null
+}
+
+const score = (o: { rotation: number; moves: readonly SearchMove[] }) => o.moves.length + ROTATION_COST[o.rotation]
+
+interface Candidate {
+  slot: number
+  rotation: number
+  before: Facelets
+  /** Solved slots by position once rotated. */
+  solved: SlotName[]
+  caseId: string | null
+  moves: SearchMove[] | null
+}
+
+// Slot identity = its index in SLOT_NAMES right after the cross. After `r`
+// y turns, slot k sits at position (k + r) mod 4; FR is position 0.
+const rotationTo = (slot: number, r: number) => (8 - slot - r) % 4
+const solvedPositions = (done: readonly number[], r: number) => done.map((id) => SLOT_NAMES[(id + r) % 4])
+
+function candidates(state: Facelets, r: number, done: readonly number[]): Candidate[] {
+  return [0, 1, 2, 3]
+    .filter((slot) => !done.includes(slot))
+    .map((slot) => {
+      const rotation = rotationTo(slot, r)
+      const before = rotation === 0 ? state : applyMove(state, 'y', rotation)
+      const solved = solvedPositions(done, r + rotation)
+      const library = libraryPair(before, solved)
+      return { slot, rotation, before, solved, caseId: library?.caseId ?? null, moves: library?.moves ?? null }
+    })
+}
+
+const easiest = (list: readonly Candidate[]) =>
+  list
+    .flatMap((c) => (c.moves ? [{ ...c, moves: c.moves }] : []))
+    .sort((a, b) => score(a) - score(b))[0]
+
 /**
- * Solves the four pairs, trying every order (greedy first, then a depth-first
- * search over orders that prunes when it cannot beat the best total).
- * After `deadline` the best solution found so far is returned as approximate.
+ * Solves the pairs the way a learner would: a pair already in place is free; otherwise take
+ * the easiest pair in a standard position (fewest moves of its library alg, counting the
+ * rotation to reach it). When none is standard, a basic insert lifts a stuck piece out of
+ * a slot first; only if that frees nothing does the shortest search solve a pair.
  */
-export function solveF2L(afterCross: Facelets, deadline: number, now: () => number = () => performance.now()): F2LSolution {
-  // Slot identity = its index in SLOT_NAMES right after the cross. After `r`
-  // y turns, slot k sits at position (k + r) mod 4; FR is position 0.
-  const step = (state: Facelets, r: number, slot: number, solvedIds: readonly number[], maxDepth: number) => {
-    if (isSlotSolved(state, SLOT_NAMES[(slot + r) % 4])) {
-      // Free pair: no rotation, no moves.
-      return { pair: { slot: SLOT_NAMES[slot], rotation: 0, before: state, moves: [], options: [] }, state, r }
-    }
-    const turns = (8 - slot - r) % 4
-    const r2 = (r + turns) % 4
-    const before = rotate(state, turns)
-    const solvedPositions = solvedIds.map((id) => SLOT_NAMES[(id + r2) % 4])
-    const moves = searchPair(before, solvedPositions, maxDepth)
-    if (!moves) return null
-    const pair: PairSolution = { slot: SLOT_NAMES[slot], rotation: turns, before, moves, options: [] }
-    return { pair, state: applySearchMoves(before, moves), r: r2 }
-  }
-
-  // Greedy: always take the cheapest next pair.
-  let best: PairSolution[] = []
-  {
-    let state = afterCross
-    let r = 0
-    const done: number[] = []
-    while (done.length < 4) {
-      let chosen: ReturnType<typeof step> = null
-      let chosenSlot = -1
-      for (let slot = 0; slot < 4; slot++) {
-        if (done.includes(slot)) continue
-        const result = step(state, r, slot, done, MAX_PAIR_DEPTH)
-        if (result && (!chosen || result.pair.moves.length < chosen.pair.moves.length)) {
-          chosen = result
-          chosenSlot = slot
-        }
-      }
-      if (!chosen) throw new Error('Không tìm được lời giải F2L')
-      best.push(chosen.pair)
-      done.push(chosenSlot)
-      state = chosen.state
-      r = chosen.r
-    }
-  }
-
-  const greedyMoves = length(best)
-  let approximate = false
-  const current: PairSolution[] = []
-  const explore = (state: Facelets, r: number, done: number[], total: number) => {
-    if (done.length === 4) {
-      if (total < length(best)) best = [...current]
-      return
-    }
-    if (now() > deadline) {
-      approximate = true
-      return
-    }
-    for (let slot = 0; slot < 4; slot++) {
-      if (done.includes(slot)) continue
-      const bound = length(best) - total - 1
-      if (bound < 0) return
-      const result = step(state, r, slot, done, Math.min(MAX_PAIR_DEPTH, bound))
-      if (!result) continue
-      current.push(result.pair)
-      explore(result.state, result.r, [...done, slot], total + result.pair.moves.length)
-      current.pop()
-    }
-  }
-  explore(afterCross, 0, [], 0)
-
-  // Replay the chosen order, costing every open pair at each point (the search is deterministic).
+export function solveF2L(afterCross: Facelets): F2LSolution {
   let state = afterCross
   let r = 0
   const done: number[] = []
-  const pairs = best.map((pair) => {
-    const slot = SLOT_NAMES.indexOf(pair.slot)
-    const options = [0, 1, 2, 3].flatMap((other) => {
-      if (done.includes(other)) return []
-      const moves = other === slot ? pair.moves.length : step(state, r, other, done, MAX_PAIR_DEPTH)?.pair.moves.length
-      return moves === undefined ? [] : [{ slot: SLOT_NAMES[other], moves }]
-    })
-    state = applySearchMoves(pair.before, pair.moves)
-    r = (r + pair.rotation) % 4
-    done.push(slot)
-    return { ...pair, options }
-  })
-  return { pairs, approximate, greedyMoves }
-}
+  const pairs: PairSolution[] = []
 
+  while (done.length < 4) {
+    const free = [0, 1, 2, 3].find((slot) => !done.includes(slot) && isSlotSolved(state, SLOT_NAMES[(slot + r) % 4]))
+    if (free !== undefined) {
+      pairs.push({ slot: SLOT_NAMES[free], rotation: 0, before: state, moves: [], caseId: null, options: [] })
+      done.push(free)
+      continue
+    }
+
+    let open = candidates(state, r, done)
+    let chosen = easiest(open)
+    let extraction: Extraction | undefined
+    if (!chosen) {
+      let extracted = state
+      let bestCost = Infinity
+      for (const c of open) {
+        for (const alg of EXTRACTIONS) {
+          const moves = toSearchMoves(parseAlg(alg))
+          const after = applySearchMoves(c.before, moves)
+          if (!keeps(after, c.solved)) continue
+          const r2 = (r + c.rotation) % 4
+          const next = candidates(after, r2, done)
+          const pick = easiest(next)
+          const cost = pick ? ROTATION_COST[c.rotation] + moves.length + score(pick) : Infinity
+          if (cost < bestCost) {
+            bestCost = cost
+            extraction = { slot: SLOT_NAMES[c.slot], rotation: c.rotation, moves }
+            chosen = pick
+            open = next
+            extracted = after
+          }
+        }
+      }
+      if (extraction) {
+        state = extracted
+        r = (r + extraction.rotation) % 4
+      }
+    }
+
+    const searched = new Map<number, SearchMove[]>()
+    if (!chosen) {
+      for (const c of open) {
+        const moves = searchPair(c.before, c.solved, MAX_PAIR_DEPTH)
+        if (moves) searched.set(c.slot, moves)
+      }
+      chosen = open
+        .flatMap((c) => (searched.has(c.slot) ? [{ ...c, moves: searched.get(c.slot)!, caseId: null }] : []))
+        .sort((a, b) => score(a) - score(b))[0]
+      if (!chosen) throw new Error('Không tìm được lời giải F2L')
+    }
+
+    const options: PairOption[] = open.map((c) => ({
+      slot: SLOT_NAMES[c.slot],
+      rotation: c.rotation,
+      moves: (c.moves ?? searched.get(c.slot) ?? []).length,
+      caseId: c.caseId,
+    }))
+    pairs.push({
+      slot: SLOT_NAMES[chosen.slot],
+      ...(extraction ? { extraction } : {}),
+      rotation: chosen.rotation,
+      before: chosen.before,
+      moves: chosen.moves,
+      caseId: chosen.caseId,
+      options,
+    })
+    state = applySearchMoves(chosen.before, chosen.moves)
+    r = (r + chosen.rotation) % 4
+    done.push(chosen.slot)
+  }
+  return { pairs }
+}

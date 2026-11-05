@@ -148,9 +148,6 @@ export function SolverTab() {
             <p className="solution-summary">
               Tổng <strong>{result.totalMoves}</strong> nước (HTM, không tính xoay khối) · {Math.round(result.elapsedMs)} ms
             </p>
-            {result.approximate && (
-              <p className="muted">Hết thời gian tìm thứ tự cặp F2L tốt nhất; đây là lời giải tốt nhất tìm được.</p>
-            )}
             <p className="muted">Phím tắt: ← → từng nước, ↑ ↓ từng chặng, Space phát/dừng.</p>
             <StepTimeline steps={result.steps} current={current} playing={playing} onSeek={seek} />
           </>

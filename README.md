@@ -38,10 +38,13 @@ vào đây trước khi làm.
    bước tới/lui từng nước, ghi rõ ca tương ứng trong thư viện.
    - Hướng cố định: cross **trắng ở đáy, xanh lá ở trước**.
    - Cross: tìm kiếm IDA*, ngắn nhất thật sự.
-   - F2L: IDA* từng cặp, thử cả 24 thứ tự cặp, lấy tổng ngắn nhất; chạy trong
-     Web Worker để không chặn UI. Trước mỗi cặp xoay `y` đưa khe về FR và chỉ
-     dùng `U R F L`, để lời giải dễ làm theo và cùng góc nhìn với thư viện
-     (chấp nhận dài hơn vài nước so với dùng đủ 18 nước). Mục tiêu p95 ≤ 5 giây.
+   - F2L giải như người tập look ahead (đổi 2026-11-05, thay cho tìm thứ tự 4 cặp ngắn
+     nhất vì lời giải máy khó học): mỗi lượt lấy cặp dễ nhất đang ở dạng ca chuẩn, giải
+     bằng đúng công thức thư viện kèm AUF. "Dễ nhất" = ít nước nhất, cộng chi phí xoay
+     khối (`y`/`y'` tính 2 nước, `y2` tính 3) để ưu tiên cặp ở gần phía trước. Nếu không
+     cặp nào ở dạng chuẩn, rút mảnh kẹt ra bằng một nước chèn cơ bản (`R U R'`,
+     `F' U F`, …) thành một bước riêng; chỉ khi vẫn không được mới dùng IDA* cho cặp đó.
+     Trước mỗi cặp xoay `y` đưa khe về FR, chỉ dùng `U R F L`, chạy trong Web Worker.
    - OLL/PLL: nhận diện ca và tra thư viện (kèm AUF).
    - "Tối ưu" nghĩa là tối ưu trong khuôn khổ CFOP, không phải lời giải ngắn
      nhất tuyệt đối (Kociemba bị loại vì không chia bước CFOP).
@@ -72,10 +75,11 @@ vào đây trước khi làm.
      Tự mở lần vừa giải; mở được mọi lần trong danh sách, hoặc scramble hiện tại (lời
      giải ẩn đến khi bấm "Hiện lời giải").
    - "Vì sao giải như vậy?" dưới mỗi bước của lời giải (chốt 2026-11-05), cả ở tab Giải theo
-     CFOP: Cross nêu vị trí từng cạnh trắng và lý do lời giải ngắn nhất; F2L so sánh số nước
-     của mọi cặp còn lại lúc đó (vì sao chọn cặp này trước, khi nào thứ tự tối ưu khác cách
-     luôn chọn cặp ngắn nhất), nhận diện ca, hướng giải theo nhóm ca, nước chèn cặp, so với
-     công thức thư viện; OLL/PLL nêu nhóm ca và lý do AUF. Nội dung sinh từ chính solver.
+     CFOP: Cross nêu vị trí từng cạnh trắng và lý do lời giải ngắn nhất; F2L liệt kê mọi cặp
+     còn lại lúc đó (ca chuẩn nào, bao nhiêu nước, cần xoay gì, hay đang kẹt), vì sao chọn
+     cặp này, nhận diện ca, hướng giải theo nhóm ca, nước chèn cặp, cặp nên tìm tiếp khi
+     look ahead, và lý do rút mảnh kẹt; OLL/PLL nêu nhóm ca và lý do AUF. Nội dung sinh từ
+     chính solver. Công thức ca của mỗi bước mở ngay tại chỗ, không rời trang.
    - Mỗi phiên (cả khối, Cross, F2L, OLL, PLL) lưu riêng trong `localStorage` của trình
      duyệt: không đồng bộ giữa các máy, không có xuất/nhập.
 
@@ -118,8 +122,10 @@ npm test
 
 Đo ngày 2026-10-23 trên máy dev (Node 22, 100 scramble fixture):
 
-- Solver CFOP: p50 ≈ 30–55 ms, p95 ≈ 80–140 ms, chậm nhất ≈ 300 ms (mục tiêu p95 ≤ 5 giây).
-  Trung bình số nước: Cross 5.7, mỗi cặp F2L 5.3, OLL 10.8, PLL 14.6.
+- Solver CFOP (đo lại 2026-11-05 sau khi F2L đổi sang cách giải như người): p50 ≈ 1 ms,
+  p95 ≈ 2 ms, chậm nhất ≈ 25 ms. Trung bình mỗi lời giải: Cross 5.7 nước, F2L 29.9 nước
+  (trước đây ≈ 21 với thứ tự tối ưu) và ≈ 4 lần xoay `y`, OLL 10.6, PLL 14.9; khoảng
+  45/100 lời giải có một bước rút mảnh kẹt.
 - Bundle (`npm run build`): chunk khởi tạo `index-*.js` ≈ 274 kB (gzip ≈ 87 kB), không chứa
   cubing.js. cubing.js chỉ tải khi mở khối 3D hoặc tạo scramble: `twisty-dynamic-3d` ≈ 504 kB,
   `twisty` ≈ 115 kB, wasm sinh scramble ≈ 671 kB.

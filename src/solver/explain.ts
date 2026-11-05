@@ -1,5 +1,5 @@
 import { describeFrPair, findCase } from '../algorithms'
-import { STICKERS, centerOf, countMoves, faceOf, formatAlg, type Facelets } from '../cube'
+import { STICKERS, centerOf, faceOf, formatAlg, simplify, type Facelets } from '../cube'
 import { CROSS_HOMES, crossLocations, edgeSticker, type SlotName } from './cubie'
 import type { PairSolution } from './f2l'
 
@@ -59,68 +59,72 @@ function insertion(moves: string): string | null {
     : null
 }
 
-interface PairContext {
-  pair: PairSolution
-  caseId: string | null
-  /** State right after the cross, for naming pairs by color. */
-  afterCross: Facelets
-  /** First pair with moves: also explains how the order was chosen. */
-  first: boolean
-  total: number
-  greedyMoves: number
-}
+const ROTATION_NAMES = ['', 'y', 'y2', "y'"]
 
-export function pairReasons({ pair, caseId, afterCross, first, total, greedyMoves }: PairContext): string[] {
+/**
+ * Why this pair now and how it goes. `next` is the pair solved after it, for look ahead;
+ * `afterCross` names pairs by color as seen right after the cross.
+ */
+export function pairReasons(pair: PairSolution, afterCross: Facelets, next?: PairSolution): string[] {
   if (pair.moves.length === 0) return ['Cặp này đã tự vào khe nhờ các nước trước đó, không cần giải.']
   const reasons: string[] = []
   const name = (slot: SlotName) => pairName(afterCross, slot)
 
-  if (first) {
-    reasons.push(
-      greedyMoves > total
-        ? `Thứ tự 4 cặp: app thử cả 24 thứ tự và lấy tổng ngắn nhất (${total} nước); nếu lần nào cũng chọn cặp ngắn nhất trước thì tổng là ${greedyMoves} nước.`
-        : `Thứ tự 4 cặp: app thử cả 24 thứ tự; chọn cặp ngắn nhất ở mỗi lượt cũng cho tổng ngắn nhất (${total} nước).`,
-    )
-  }
-
-  const options = [...pair.options].sort((a, b) => a.moves - b.moves)
-  if (options.length > 1) {
-    const list = options.map((o) => `${name(o.slot)} ${o.moves} nước${o.slot === pair.slot ? ' (chọn)' : ''}`).join(', ')
-    reasons.push(`Các cặp còn lại nếu giải ngay: ${list}.`)
-    const cheapest = options[0]
-    if (cheapest.moves < pair.moves.length) {
-      reasons.push(
-        `Không chọn cặp ngắn nhất (${name(cheapest.slot)}) vì giải cặp ${name(pair.slot)} trước làm các cặp sau ngắn hơn, tổng F2L ít nước hơn.`,
-      )
-    } else {
-      reasons.push(`Chọn cặp ${name(pair.slot)} vì đang cần ít nước nhất.`)
-    }
-  } else if (options.length === 1) {
+  if (pair.options.length > 1) {
+    const list = pair.options
+      .map((o) => {
+        const rotation = o.rotation ? ` + xoay ${ROTATION_NAMES[o.rotation]}` : ''
+        const what = o.caseId ? `${o.caseId}, ${o.moves} nước${rotation}` : 'kẹt ở khe khác'
+        return `${name(o.slot)} (${what})${o.slot === pair.slot ? ' ← chọn' : ''}`
+      })
+      .join('; ')
+    reasons.push(`Các cặp lúc này: ${list}.`)
+  } else {
     reasons.push('Cặp cuối cùng còn lại.')
   }
 
-  const moves = formatAlg(pair.moves)
-  const found = caseId ? findCase(caseId) : undefined
-  if (caseId && found) {
-    reasons.push(`Nhận diện: ${describeFrPair(pair.before).toLowerCase()} (${caseId}).`)
-    const strategy = GROUP_STRATEGY[found.group]
-    if (strategy) reasons.push(strategy)
-    const libraryCount = countMoves(found.alg)
-    if (libraryCount > pair.moves.length) {
+  const found = pair.caseId ? findCase(pair.caseId) : undefined
+  if (pair.caseId && found) {
+    if (pair.options.length > 1) {
       reasons.push(
-        `Công thức thư viện cho ca này là ${found.alg} (${libraryCount} nước, có thể cần U trước); app tìm được cách ngắn hơn ${libraryCount - pair.moves.length} nước. Người mới nên học công thức thư viện trước, quen rồi mới tối ưu.`,
+        `Chọn cặp ${name(pair.slot)} vì dễ nhất: đang ở dạng ca chuẩn và ít nước nhất${pair.rotation ? ' (tính cả xoay khối)' : ', không cần xoay khối'}.`,
       )
     }
+    reasons.push(`Nhận diện: ${describeFrPair(pair.before).toLowerCase()} (${pair.caseId}).`)
+    const strategy = GROUP_STRATEGY[found.group]
+    if (strategy) reasons.push(strategy)
+    reasons.push(
+      formatAlg(pair.moves) === formatAlg(simplify(found.alg))
+        ? `Dùng đúng công thức thư viện ${found.alg}.`
+        : `Dùng công thức thư viện ${found.alg}, chỉnh nước U đầu để căn cặp về đúng vị trí như hình.`,
+    )
   } else {
-    reasons.push('Góc hoặc cạnh đang ở khe khác: phải đưa ra tầng trên trước, nên không theo đúng ca chuẩn và tốn thêm nước.')
+    reasons.push(
+      "Không cặp nào ở dạng ca chuẩn (góc hoặc cạnh đều kẹt ở khe khác), nên chọn cặp lấy ra nhanh nhất. Đoạn này do máy tìm nên không giống công thức; khi tự giải, hãy đưa mảnh bị kẹt lên tầng trên bằng R U R' (hoặc tương tự) rồi giải như ca thường.",
+    )
   }
 
-  const insert = insertion(moves)
+  const insert = insertion(formatAlg(pair.moves))
   if (insert && pair.moves.length === 3) reasons.push(`Cặp đã sẵn sàng: ${insert} chèn thẳng vào khe.`)
   else if (insert) reasons.push(`3 nước cuối ${insert} chèn cặp đã ghép vào khe; các nước trước đó để ghép cặp.`)
+
+  if (next) {
+    reasons.push(
+      `Look ahead: trong lúc làm cặp này, đưa mắt tìm góc và cạnh của cặp ${name(next.slot)} (cặp giải tiếp theo) để chuyển sang ngay, không phải dừng lại tìm.`,
+    )
+  }
   return reasons
 }
 
-export function rotationReasons(): string[] {
-  return ['Xoay y để khe cần giải về trước-phải: cùng góc nhìn với hình trong thư viện, chỉ cần R U F.']
+export function rotationReasons(rotation: string): string[] {
+  return [`Xoay ${rotation} để khe cần giải về trước-phải: cùng góc nhìn với hình trong thư viện, chỉ cần R U F.`]
+}
+
+export function extractionReasons(pair: PairSolution, afterCross: Facelets): string[] {
+  const extraction = pair.extraction!
+  return [
+    'Không cặp nào ở dạng ca chuẩn: góc hoặc cạnh của các cặp còn lại đều kẹt trong khe khác.',
+    `Rút mảnh kẹt ra tầng trên bằng ${formatAlg(extraction.moves)}, sau đó cặp ${pairName(afterCross, pair.slot)} thành ca chuẩn${pair.caseId ? ` (${pair.caseId})` : ''}.`,
+    'Khi tự giải: chọn khe sao cho mảnh rút ra không làm hỏng cặp đang nhìn thấy, ưu tiên rút ở khe trước để dễ quan sát.',
+  ]
 }

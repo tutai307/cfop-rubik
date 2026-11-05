@@ -1,14 +1,12 @@
-import { SOLVING_ORIENTATION, recognizeF2L } from '../algorithms'
+import { SOLVING_ORIENTATION } from '../algorithms'
 import { applyAlg, countMoves, formatAlg, isSolved, parseAlg, simplify, stateOf, type Move } from '../cube'
 import { solveCross } from './cross'
-import { crossReasons, pairName, pairReasons, rotationReasons } from './explain'
+import { crossReasons, extractionReasons, pairName, pairReasons, rotationReasons } from './explain'
 import { solveF2L } from './f2l'
 import { ollStep, pllStep } from './last-layer'
 import type { SolveResult, SolveStep } from './types'
 
 export interface SolveOptions {
-  /** Time allowed for the F2L order search before returning the best so far. */
-  timeBudgetMs?: number
   now?: () => number
 }
 
@@ -26,7 +24,7 @@ function makeStep(draft: Omit<SolveStep, 'moveCount'>): SolveStep {
 }
 
 /** CFOP solution of a WCA-oriented scramble: Cross → F2L (4 pairs) → OLL → PLL. */
-export function solve(scramble: string, { timeBudgetMs = 4000, now = () => performance.now() }: SolveOptions = {}): SolveResult {
+export function solve(scramble: string, { now = () => performance.now() }: SolveOptions = {}): SolveResult {
   const started = now()
   const steps: SolveStep[] = [
     makeStep({ stage: 'Xoay', label: 'Xoay khối: trắng xuống đáy', moves: SOLVING_ORIENTATION }),
@@ -37,15 +35,24 @@ export function solve(scramble: string, { timeBudgetMs = 4000, now = () => perfo
   steps.push(makeStep({ stage: 'Cross', label: 'Cross trắng', moves: formatAlg(cross), reasons: crossReasons(state, cross.length) }))
   state = applyAlg(state, cross)
 
-  const f2l = solveF2L(state, started + timeBudgetMs, now)
+  const f2l = solveF2L(state)
   const afterCross = state
-  const f2lTotal = f2l.pairs.reduce((sum, p) => sum + p.moves.length, 0)
-  const firstWithMoves = f2l.pairs.findIndex((p) => p.moves.length > 0)
+  const rotate = (turns: number) => {
+    if (turns) steps.push(makeStep({ stage: 'Xoay', label: 'Xoay khối', moves: ROTATION_NAMES[turns], reasons: rotationReasons(ROTATION_NAMES[turns]) }))
+  }
   f2l.pairs.forEach((pair, i) => {
-    if (pair.rotation) {
-      steps.push(makeStep({ stage: 'Xoay', label: 'Xoay khối', moves: ROTATION_NAMES[pair.rotation], reasons: rotationReasons() }))
+    const { extraction } = pair
+    if (extraction) {
+      rotate(extraction.rotation)
+      steps.push(makeStep({
+        stage: 'F2L',
+        label: `Rút mảnh kẹt khỏi khe ${pairName(afterCross, extraction.slot)}`,
+        moves: formatAlg(extraction.moves),
+        reasons: extractionReasons(pair, afterCross),
+      }))
     }
-    const caseId = pair.moves.length > 0 ? recognizeF2L(pair.before) : null
+    rotate(pair.rotation)
+    const { caseId } = pair
     const where = `${pairName(afterCross, pair.slot)} (khe ${SLOT_LABELS[pair.slot]})`
     const label =
       pair.moves.length === 0
@@ -56,7 +63,7 @@ export function solve(scramble: string, { timeBudgetMs = 4000, now = () => perfo
       label,
       moves: formatAlg(pair.moves),
       ...(caseId ? { caseId, caseSet: 'F2L' as const } : {}),
-      reasons: pairReasons({ pair, caseId, afterCross, first: i === firstWithMoves, total: f2lTotal, greedyMoves: f2l.greedyMoves }),
+      reasons: pairReasons(pair, afterCross, f2l.pairs.slice(i + 1).find((p) => p.moves.length > 0)),
     }))
   })
 
@@ -79,7 +86,6 @@ export function solve(scramble: string, { timeBudgetMs = 4000, now = () => perfo
   return {
     steps,
     totalMoves: steps.reduce((sum, s) => sum + s.moveCount, 0),
-    approximate: f2l.approximate,
     elapsedMs: now() - started,
   }
 }

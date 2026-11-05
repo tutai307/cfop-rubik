@@ -53,7 +53,8 @@ describe('solve', () => {
       if (step.stage === 'Xoay') expect(step.moves).toMatch(/^(z2|y|y2|y')?$/)
       if (step.stage === 'Cross') expect(isCrossSolved(state)).toBe(true)
       if (step.stage === 'F2L') {
-        pairsDone++
+        // An extraction lifts a stuck piece out and solves no pair by itself.
+        if (/^F2L \d/.test(step.label)) pairsDone++
         expect(step.moves).toMatch(/^([URFL]['2]? ?)*$/)
         expect(isCrossSolved(state)).toBe(true)
         expect(solvedSlots(state).length).toBeGreaterThanOrEqual(pairsDone)

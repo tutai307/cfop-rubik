@@ -18,7 +18,5 @@ export interface SolveStep {
 export interface SolveResult {
   steps: SolveStep[]
   totalMoves: number
-  /** True when the F2L order search hit the time budget before finishing. */
-  approximate: boolean
   elapsedMs: number
 }
