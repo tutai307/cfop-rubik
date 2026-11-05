@@ -17,8 +17,3 @@ export type LibraryTabId = (typeof LIBRARY_TABS)[number]['id']
 export function libraryHref(tab: LibraryTabId, caseId?: string): string {
   return caseId ? hrefFor(LIBRARY_PAGE, tab, caseId) : hrefFor(LIBRARY_PAGE, tab)
 }
-
-export function caseHref(set: AlgSet, caseId: string): string {
-  const tab = LIBRARY_TABS.find((t) => 'set' in t && t.set === set)!
-  return libraryHref(tab.id, caseId)
-}

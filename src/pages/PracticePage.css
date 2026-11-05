@@ -184,8 +184,22 @@
 }
 
 .timeline-case {
-  display: inline-block;
   margin-top: 4px;
   font-size: 0.85rem;
+}
+
+.timeline-case summary {
+  cursor: pointer;
   color: var(--accent);
+}
+
+.timeline-case-body {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  margin-top: 6px;
+}
+
+.timeline-case-body p {
+  margin: 0 0 4px;
 }

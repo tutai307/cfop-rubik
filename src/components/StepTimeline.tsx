@@ -1,7 +1,8 @@
 import { useEffect, useRef } from 'react'
-import { caseHref } from '../lib/library-routes'
+import { findCase } from '../algorithms'
 import { stepStarts } from '../lib/timeline'
 import type { SolveStep } from '../solver/types'
+import { CaseDiagram } from './CaseDiagram'
 
 interface StepTimelineProps {
   steps: readonly SolveStep[]
@@ -77,14 +78,36 @@ export function StepTimeline({ steps, current, playing = false, onSeek }: StepTi
                 </ul>
               </details>
             )}
-            {step.caseId && step.caseSet && (
-              <a className="timeline-case" href={caseHref(step.caseSet, step.caseId)}>
-                Xem {step.caseId} trong thư viện
-              </a>
-            )}
+            {step.caseId && <CaseFormula caseId={step.caseId} />}
           </li>
         )
       })}
     </ol>
+  )
+}
+
+/** The library case of a step, shown in place so the solution page is never left. */
+function CaseFormula({ caseId }: { caseId: string }) {
+  const algCase = findCase(caseId)
+  if (!algCase) return null
+  return (
+    <details className="timeline-case">
+      <summary>Công thức {caseId} trong thư viện</summary>
+      <div className="timeline-case-body">
+        <CaseDiagram algCase={algCase} size={72} />
+        <div>
+          <p className="muted">
+            {algCase.group} · {algCase.name}
+          </p>
+          <p className="alg-text">{algCase.alg}</p>
+          {algCase.alternatives?.map((alt) => (
+            <p key={alt} className="alg-text muted">
+              Cách khác: {alt}
+            </p>
+          ))}
+          {algCase.note && <p className="muted">{algCase.note}</p>}
+        </div>
+      </div>
+    </details>
   )
 }
