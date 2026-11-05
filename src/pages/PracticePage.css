@@ -165,6 +165,24 @@
   color: #fff;
 }
 
+.timeline-why {
+  margin-top: 6px;
+  font-size: 0.85rem;
+}
+
+.timeline-why summary {
+  cursor: pointer;
+  color: var(--accent);
+}
+
+.timeline-why ul {
+  margin: 4px 0 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
 .timeline-case {
   display: inline-block;
   margin-top: 4px;

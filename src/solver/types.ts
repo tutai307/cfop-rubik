@@ -11,6 +11,8 @@ export interface SolveStep {
   moveCount: number
   caseId?: string
   caseSet?: AlgSet
+  /** Why the step is solved this way, one sentence each, for learners. */
+  reasons?: string[]
 }
 
 export interface SolveResult {

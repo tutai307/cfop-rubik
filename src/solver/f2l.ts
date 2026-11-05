@@ -114,11 +114,15 @@ export interface PairSolution {
   /** State with the pair rotated to FR, before `moves`. */
   before: Facelets
   moves: SearchMove[]
+  /** Every pair still open at this point with the moves it would take next, the chosen one included. */
+  options: { slot: SlotName; moves: number }[]
 }
 
 export interface F2LSolution {
   pairs: PairSolution[]
   approximate: boolean
+  /** Total of always taking the cheapest next pair, to compare with the chosen order. */
+  greedyMoves: number
 }
 
 const length = (pairs: readonly PairSolution[]) => pairs.reduce((sum, p) => sum + p.moves.length, 0)
@@ -141,7 +145,7 @@ export function solveF2L(afterCross: Facelets, deadline: number, now: () => numb
   const step = (state: Facelets, r: number, slot: number, solvedIds: readonly number[], maxDepth: number) => {
     if (isSlotSolved(state, SLOT_NAMES[(slot + r) % 4])) {
       // Free pair: no rotation, no moves.
-      return { pair: { slot: SLOT_NAMES[slot], rotation: 0, before: state, moves: [] }, state, r }
+      return { pair: { slot: SLOT_NAMES[slot], rotation: 0, before: state, moves: [], options: [] }, state, r }
     }
     const turns = (8 - slot - r) % 4
     const r2 = (r + turns) % 4
@@ -149,7 +153,7 @@ export function solveF2L(afterCross: Facelets, deadline: number, now: () => numb
     const solvedPositions = solvedIds.map((id) => SLOT_NAMES[(id + r2) % 4])
     const moves = searchPair(before, solvedPositions, maxDepth)
     if (!moves) return null
-    const pair: PairSolution = { slot: SLOT_NAMES[slot], rotation: turns, before, moves }
+    const pair: PairSolution = { slot: SLOT_NAMES[slot], rotation: turns, before, moves, options: [] }
     return { pair, state: applySearchMoves(before, moves), r: r2 }
   }
 
@@ -178,6 +182,7 @@ export function solveF2L(afterCross: Facelets, deadline: number, now: () => numb
     }
   }
 
+  const greedyMoves = length(best)
   let approximate = false
   const current: PairSolution[] = []
   const explore = (state: Facelets, r: number, done: number[], total: number) => {
@@ -201,6 +206,23 @@ export function solveF2L(afterCross: Facelets, deadline: number, now: () => numb
     }
   }
   explore(afterCross, 0, [], 0)
-  return { pairs: best, approximate }
+
+  // Replay the chosen order, costing every open pair at each point (the search is deterministic).
+  let state = afterCross
+  let r = 0
+  const done: number[] = []
+  const pairs = best.map((pair) => {
+    const slot = SLOT_NAMES.indexOf(pair.slot)
+    const options = [0, 1, 2, 3].flatMap((other) => {
+      if (done.includes(other)) return []
+      const moves = other === slot ? pair.moves.length : step(state, r, other, done, MAX_PAIR_DEPTH)?.pair.moves.length
+      return moves === undefined ? [] : [{ slot: SLOT_NAMES[other], moves }]
+    })
+    state = applySearchMoves(pair.before, pair.moves)
+    r = (r + pair.rotation) % 4
+    done.push(slot)
+    return { ...pair, options }
+  })
+  return { pairs, approximate, greedyMoves }
 }
 

@@ -44,6 +44,8 @@ const EDGE_LOCAL = new Map(EDGE_STICKERS.map((s, i) => [s, i]))
 
 export const cornerLocation = (sticker: number) => CORNER_LOCAL.get(sticker)!
 export const edgeLocation = (sticker: number) => EDGE_LOCAL.get(sticker)!
+/** Sticker index of an edge location, the inverse of `edgeLocation`. */
+export const edgeSticker = (location: number) => EDGE_STICKERS[location]
 
 /** `table[move * 24 + location]` = location after the move. */
 export interface MoveTables {

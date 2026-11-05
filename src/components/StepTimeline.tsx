@@ -67,6 +67,16 @@ export function StepTimeline({ steps, current, playing = false, onSeek }: StepTi
                 })}
               </div>
             )}
+            {step.reasons && step.reasons.length > 0 && (
+              <details className="timeline-why" open={active || undefined}>
+                <summary>Vì sao giải như vậy?</summary>
+                <ul>
+                  {step.reasons.map((reason, k) => (
+                    <li key={k}>{reason}</li>
+                  ))}
+                </ul>
+              </details>
+            )}
             {step.caseId && step.caseSet && (
               <a className="timeline-case" href={caseHref(step.caseSet, step.caseId)}>
                 Xem {step.caseId} trong thư viện

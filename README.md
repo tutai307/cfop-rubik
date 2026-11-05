@@ -71,6 +71,11 @@ vào đây trước khi làm.
      lời giải của solver CFOP cho chặng đó, tới/lui từng nước như tab Giải theo CFOP.
      Tự mở lần vừa giải; mở được mọi lần trong danh sách, hoặc scramble hiện tại (lời
      giải ẩn đến khi bấm "Hiện lời giải").
+   - "Vì sao giải như vậy?" dưới mỗi bước của lời giải (chốt 2026-11-05), cả ở tab Giải theo
+     CFOP: Cross nêu vị trí từng cạnh trắng và lý do lời giải ngắn nhất; F2L so sánh số nước
+     của mọi cặp còn lại lúc đó (vì sao chọn cặp này trước, khi nào thứ tự tối ưu khác cách
+     luôn chọn cặp ngắn nhất), nhận diện ca, hướng giải theo nhóm ca, nước chèn cặp, so với
+     công thức thư viện; OLL/PLL nêu nhóm ca và lý do AUF. Nội dung sinh từ chính solver.
    - Mỗi phiên (cả khối, Cross, F2L, OLL, PLL) lưu riêng trong `localStorage` của trình
      duyệt: không đồng bộ giữa các máy, không có xuất/nhập.
 

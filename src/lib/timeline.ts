@@ -55,7 +55,10 @@ const SESSION_STAGES: Record<TimerSession, readonly SolveStep['stage'][]> = {
  */
 export function stagePlan(steps: readonly SolveStep[], session: TimerSession): { setup: string; steps: SolveStep[] } {
   const wanted = SESSION_STAGES[session]
-  const first = steps.findIndex((s) => wanted.includes(s.stage))
+  let first = steps.findIndex((s) => wanted.includes(s.stage))
+  // A rotation right before the stage (e.g. `y` to the first pair) belongs to it, so it is shown;
+  // the opening z2 (index 0) stays in the setup.
+  while (first > 1 && steps[first - 1].stage === 'Xoay') first--
   const last = steps.findLastIndex((s) => wanted.includes(s.stage))
   return {
     setup: steps.slice(0, first).map((s) => s.moves).filter(Boolean).join(' '),
